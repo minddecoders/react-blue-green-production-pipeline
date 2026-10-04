@@ -1,0 +1,76 @@
+name: "GitOps - Security Plan"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select Target Infrastructure Environment Workspace Tier to FORECAST"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  contents: read
+  id-token: write # 🔑 Authorizes keyless OIDC identity generation!
+
+jobs:
+  terraform-plan:
+    name: "Security Audit & IaC Plan Forecast"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./application-infra
+
+    steps:
+      - name: "Checkout Codebase Repository"
+        uses: actions/checkout@v4
+
+      # 🛡️ DEVSECOPS COMPLIANCE GATE: Scans your infrastructure layout variables automatically
+      - name: "Run Checkov Static Code Analysis Security Audit"
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: ./application-infra
+          framework: terraform
+          output_format: cli
+          soft_fail: true
+
+      # 🔑 KEYLESS HANDSHAKE: Authenticates securely via your isolated bootstrap OIDC role
+      - name: "Authenticate to AWS using Secure Keyless OIDC Token"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::951614974272:role/sidra-github-actions-oidc-execution-role
+          aws-region: eu-west-1
+
+      - name: "Setup Terraform Engine"
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.2"
+
+      - name: "Verify Layout Spacing and Format Compliance"
+        run: terraform fmt -check -recursive
+
+      - name: "Initialize S3 Remote Backend Connection"
+        run: terraform init -input=false
+
+      # 📁 DYNAMIC WORKSPACE SELECTOR: Extracts your graphical user dropdown parameter on the fly!
+      - name: "Select Target Workspace Environment"
+        run: |
+          echo "Routing infrastructure plan forecast into environment tier: ${{ github.event.inputs.environment }}"
+          terraform workspace select ${{ github.event.inputs.environment }} || terraform workspace new ${{ github.event.inputs.environment }}
+
+      - name: "Execute Code Semantics Validation Gate"
+        run: terraform validate
+
+      # Generates a flawless cloud resource forecast matching your true environmental variable maps
+      - name: "Generate Automated Plan Forecast Layout"
+        run: terraform plan -input=false
+        env:
+          TF_VAR_container_image: "minddecoders/react-recipeapp-blue-green-production:v1.0"
+          TF_VAR_green_container_image: "minddecoders/react-recipeapp-blue-green-production:v1.0"
+          TF_VAR_blue_traffic_weight: 100
+          TF_VAR_green_traffic_weight: 0

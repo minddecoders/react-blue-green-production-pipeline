@@ -1,0 +1,125 @@
+*{
+    margin: 0%;
+    padding: 0%;
+    box-sizing: border-box;
+}
+.home{
+    background-color: rgb(197, 190, 190);
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.container{
+    max-width: 900px;
+    display: flex;
+    flex-direction: row;
+    border-radius: 20px;
+    background-color: rgb(255, 255, 255);
+    overflow: hidden;
+}
+.container img{
+    width:100%;
+    height: 100%;
+    max-width: 350px;
+    border-top-left-radius:20px ;
+}
+.about{
+    display: flex;
+    flex-direction:column;
+    justify-content:left;
+    text-align: left;
+    padding: 20px;
+    
+}
+.about h1{
+        font-size: 25px;
+        line-height: 1.5;
+      font-weight: 700;
+        color: rgb(81, 80, 80);
+      font-family: 'Manrope', sans-serif;
+
+    }
+    .about p{
+        font-size: 14px;
+
+    }
+.profile{
+    display:flex;
+    flex-direction:rows;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 50px;
+    img{
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        margin-right: 10px;
+    }
+      button{
+      width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background-color: rgb(65, 65, 206);
+        margin-left: auto;
+        
+      }
+     h2{
+        font-size: 14px;
+        color: black;
+        margin-bottom: 0%;
+        
+    }
+     p{
+
+        font-size: 12px;
+    }
+   
+}
+
+.share-btn{
+    padding: 10px 20px;
+    cursor: pointer;
+}
+
+.popup{
+    position: absolute;
+    bottom: 60px;
+    right: 0;
+
+    background-color: #4a5568;
+    color: white;
+
+    padding: 15px 25px;
+    border-radius: 10px;
+
+    display: none;
+
+    gap: 15px;
+    align-items: center;
+}
+
+/* small triangle */
+.popup::after{
+    content: "";
+    position: absolute;
+
+    bottom: -10px;
+    right: 30px;
+
+    border-width: 10px;
+    border-style: solid;
+
+    border-color: #4a5568 transparent transparent transparent;
+}
+
+.show{
+    display: flex;
+}
+
+@media (max-width:600px) {
+    .container{
+        flex-direction: column;
+    } 
+}

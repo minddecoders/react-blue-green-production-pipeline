@@ -1,0 +1,54 @@
+name: "GitOps - Cloud Destroy"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select Target Infrastructure Environment Workspace Tier to VAPORIZE"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  terraform-destroy:
+    name: "Automated FinOps Infrastructure Elimination Run"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./application-infra
+
+    steps:
+      - name: "Checkout Codebase Repository"
+        uses: actions/checkout@v4
+
+      - name: "Authenticate to AWS using Secure Keyless OIDC Token"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::951614974272:role/sidra-github-actions-oidc-execution-role
+          aws-region: eu-west-1
+
+      - name: "Setup Terraform Execution Core"
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.2"
+
+      - name: "Initialize S3 Remote State Backend Connection"
+        run: terraform init -input=false
+
+      # 📁 FINOPS SELECTION GATEWAY: Targets only the exact sandbox runtime parameters you select!
+      - name: "Select Target Workspace Environment"
+        run: |
+          echo "Targeting teardown operations at environment tier: ${{ github.event.inputs.environment }}"
+          terraform workspace select ${{ github.event.inputs.environment }}
+
+      - name: "Execute Zero-Button Cloud Destruction Eviction Sweep"
+        run: terraform destroy -auto-approve -input=false
