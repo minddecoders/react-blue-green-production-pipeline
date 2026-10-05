@@ -44,8 +44,8 @@ jobs:
       - name: "Build Production Multi-Stage Container Image"
         uses: docker/build-push-action@v5
         with:
-          context: ./react-app # Targets your fresh React source code folder!
-          file: ./react-app/Dockerfile
+          context: ./react-recipe-app # Targets your fresh React source code folder!
+          file: ./react-recipe-app/Dockerfile
           push: true
           tags: |
             minddecoders/react-recipeapp-blue-green-production:latest
