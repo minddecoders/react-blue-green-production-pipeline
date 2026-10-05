@@ -45,7 +45,7 @@ resource "aws_iam_role" "github_oidc_role" {
             # This safely accepts branch pushes, manual triggers, AND pull requests 
             # while gracefully capturing internal tracking IDs (@...) introduced by GitHub.
             "token.actions.githubusercontent.com:sub" = [
-            "repo:minddecoders/react-blue-green-production-pipeline:*"]
+            "repo:minddecoders*/react-blue-green-production-pipeline*:*"]
           }
         }
       }
