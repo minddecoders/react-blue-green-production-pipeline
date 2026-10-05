@@ -116,6 +116,10 @@ jobs:
     name: "Execute Zero-Downtime Traffic Switch"
     runs-on: ubuntu-latest
     needs: terraform-stage-green # 🔒 Runs ONLY after the green infrastructure is completely ready!
+    
+    # 🌟 FIXED FOR PRODUCTION GATE: Enforces the manual review pause button!
+    environment: production-gate
+    
     defaults:
       run:
         shell: bash
