@@ -18,7 +18,6 @@ permissions:
   id-token: write # 🔑 Grants permission to dynamically mint keyless AWS OIDC tokens!
 
 # 🏷️ GLOBAL DYNAMIC VERSIONING
-# This automatically calculates a unique, immutable version string per pipeline run (e.g., v1.42)
 env:
   RELEASE_VERSION: "v1.${{ github.run_number }}"
 
@@ -33,18 +32,16 @@ jobs:
       - name: "Checkout Codebase Repository"
         uses: actions/checkout@v4
 
-      # 🔐 SECURE REGISTRY LOGIN: Logs into DockerHub using your secrets parameters
       - name: "Log in to DockerHub Registry"
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 🐳 HIGH-SCALE COMPILATION GATE: Builds your real Vite React project via your multi-stage Dockerfile!
       - name: "Build Production Multi-Stage Container Image"
         uses: docker/build-push-action@v5
         with:
-          context: ./react-recipe-app # Targets your fresh React source code folder!
+          context: ./react-recipe-app
           file: ./react-recipe-app/Dockerfile
           push: true
           tags: |
@@ -57,17 +54,19 @@ jobs:
   terraform-stage-green:
     name: "Deploy Green Tier (Offline Staging)"
     runs-on: ubuntu-latest
-    needs: build-and-push-image # 🏎️ SEQUENTIAL LOCK: Waits for the Docker image to build successfully first!
+    needs: build-and-push-image
     defaults:
       run:
         shell: bash
         working-directory: ./application-infra
+    # 📡 SHARE TELEMETRY: Passes the ALB DNS output to the next testing job dynamically
+    outputs:
+      alb_dns: ${{ steps.parse_outputs.outputs.ALB_DNS }}
 
     steps:
       - name: "Checkout Repository Code"
         uses: actions/checkout@v4
 
-      # 🔑 100% KEYLESS HANDSHAKE: Authenticates to AWS cleanly using your secure OIDC provider
       - name: "Authenticate to AWS using OIDC"
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -82,18 +81,16 @@ jobs:
       - name: "Initialize S3 Remote Backend Connection"
         run: terraform init -input=false
 
-      # 📁 DYNAMIC ENVIRONMENT ROUTING: Switches seamlessly into the selected workspace room
       - name: "Select or Create Target Workspace Environment"
         run: |
           terraform workspace select ${{ github.event.inputs.environment }} || terraform workspace new ${{ github.event.inputs.environment }}
-
+      
       - name: "Terraform Format Check"
         run: terraform fmt -check -recursive
 
       - name: "Execute Code Semantics Validation Gate"
         run: terraform validate
       
-      # ✨ Generates your plan securely mapping the new version to Green
       - name: "Generate Live Cloud Infrastructure Plan"
         run: terraform plan -input=false
         env:
@@ -101,7 +98,6 @@ jobs:
           TF_VAR_blue_traffic_weight: 100
           TF_VAR_green_traffic_weight: 0
 
-      # 🚀 Safely deploys the new code version to Green while users stay untouched on Blue
       - name: "Generate and Apply Live Cloud Infrastructure"
         run: terraform apply -auto-approve -input=false
         env:
@@ -109,17 +105,56 @@ jobs:
           TF_VAR_blue_traffic_weight: 100
           TF_VAR_green_traffic_weight: 0
 
+      # 🔍 TELEMETRY HOOK: Extracts the URL from outputs.tf to use for the smoke test
+      # Format mapping uses standard structural lookup scripts to read the alb_dns_name string value.
+      # The source can be validated against your project [outputs.tf] properties context.
+      # Anchor lookup attributes read the true environment canonical record cleanly.
+      # The anchor value can be referenced directly using standard mapping tags:
+      # See specific resource extraction tracking properties fields:
+      - name: "Collect Dynamic Telemetry Context"
+        id: parse_outputs
+        run: |
+          ALB_RAW=$(terraform output -raw alb_dns_name)
+          echo "ALB_DNS=${ALB_RAW}" >> $GITHUB_OUTPUT
+
+  # ============================================================================
+  # NEW JOB: AUTOMATED SMOKE/HEALTH TESTING GATE
+  # ============================================================================
+  automated-health-test:
+    name: "Run Smoke & Health Tests"
+    runs-on: ubuntu-latest
+    needs: terraform-stage-green
+    steps:
+       # ✨ ENTERPRISE RETRY LOOP: Intelligently polls the AWS Load Balancer up to 12 times until healthy
+      - name: "Awaiting AWS Container Ingress Initialization"
+        run: |
+          for i in {1..12}; do
+            STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 10 \
+              -H "X-Blue-Green-Test: true" \
+              "${{ needs.terraform-stage-green.outputs.alb_dns }}")
+
+            if [ "$STATUS_CODE" -eq 200 ]; then
+              echo "✅ Green environment is healthy and responding with HTTP 200 OK!"
+              exit 0
+            fi
+
+            echo "⏳ Green container ingress not ready yet (HTTP $STATUS_CODE). Retrying in 10 seconds... (Attempt $i/12)"
+            sleep 10
+          done
+
+          echo "🚨 CRITICAL ERROR: Green environment did not become healthy within the 2-minute stabilization window."
+          exit 1
+
+
   # ============================================================================
   # JOB 3: THE SWAP CONTROLLER (Flips Traffic to 100% Green Instantly)
   # ============================================================================
   promote-green-to-live:
     name: "Execute Zero-Downtime Traffic Switch"
     runs-on: ubuntu-latest
-    needs: terraform-stage-green # 🔒 Runs ONLY after the green infrastructure is completely ready!
-    
-    # 🌟 FIXED FOR PRODUCTION GATE: Enforces the manual review pause button!
-    environment: production-gate
-    
+    needs: automated-health-test # 🔒 CHANGED: Will only run if the automated smoke tests pass perfectly!
+    environment: production-gate # ⏸️ Still pauses here for your final sign-off click!
     defaults:
       run:
         shell: bash
@@ -129,7 +164,6 @@ jobs:
       - name: "Checkout Repository Code"
         uses: actions/checkout@v4
 
-      # 🔑 Authenticate to AWS cleanly using your secure OIDC provider
       - name: "Authenticate to AWS using OIDC"
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -147,11 +181,55 @@ jobs:
       - name: "Select Active Workspace"
         run: terraform workspace select ${{ github.event.inputs.environment }}
 
-      # 🎛️ THE FLIP: Instructs the Application Load Balancer to shift 100% of traffic to Green instantly
-      # We target only the listener rule to avoid resetting unpassed container configuration variables!
       - name: "Modify ALB Rules (Blue: 0% / Green: 100%)"
         run: terraform apply -auto-approve -target=aws_lb_listener_rule.blue_green_router -input=false
         env:
           TF_VAR_green_container_image: "minddecoders/react-recipeapp-blue-green-production:${{ env.RELEASE_VERSION }}"
           TF_VAR_blue_traffic_weight: 0
           TF_VAR_green_traffic_weight: 100
+ # ============================================================================
+  # 🚨 JOB 5: AUTOMATED DEEP ROLLBACK (Fires ONLY if Smoke Test Fails)
+  # ============================================================================
+  automated-rollback-cleanup:
+    name: "Tear Down Broken Green Release"
+    runs-on: ubuntu-latest
+    needs: automated-health-test
+    if: failure() # 🎯 Circuit breaker triggers on test failure
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./application-infra
+
+    steps:
+      - name: "Checkout Repository Code"
+        uses: actions/checkout@v4
+
+      - name: "Authenticate to AWS using OIDC"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::951614974272:role/sidra-github-actions-oidc-execution-role
+          aws-region: eu-west-1
+
+      - name: "Setup Terraform Engine"
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.2"
+
+      - name: "Initialize S3 Remote Backend Connection"
+        run: terraform init -input=false
+
+      - name: "Select Active Workspace"
+        run: terraform workspace select ${{ github.event.inputs.environment }}
+
+      # ✨ FIXED INDENTATION & COMPREHENSIVE WIPE
+      # Runs a full apply passing var.green_ecs_scale=0 to actively terminate the broken Fargate tasks!
+      - name: "Rollback & Scale Down Broken Green Release"
+        run: |
+          echo "Smoke test failed! Resetting Load Balancer weights and scaling Green Fargate tasks to 0..."
+          terraform apply -auto-approve -input=false
+        env:
+          TF_VAR_green_container_image: "minddecoders/react-recipeapp-blue-green-production:${{ env.RELEASE_VERSION }}"
+          TF_VAR_blue_traffic_weight: 100
+          TF_VAR_green_traffic_weight: 0
+          TF_VAR_green_ecs_scale: 0 # 🧹 Scales Green tasks to exactly 0, killing the containers cleanly!
+          

@@ -69,6 +69,12 @@ variable "green_container_image" {
   description = "Docker Hub image version passed dynamically from GitHub Actions"
   default     = "minddecoders/react-recipeapp-blue-green-production:v1.0" # Changed default away from :latest to track drift clearly
 }
+variable "green_ecs_scale" {
+  type        = number
+  description = "Emergency override toggle to scale down defective Green tasks during a rollback"
+  default     = null # Defaults to null so it matches standard workspace baselines normally
+}
+
 
 # 🎛️ Blue-Green Routing Controllers
 # These connect directly to the aws_lb_listener_rule in your main.tf file!

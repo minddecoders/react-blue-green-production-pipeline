@@ -33,7 +33,8 @@ locals {
     prod    = "t3.medium"
   }
 
-  ecs_task_counts = {
+  # 🔵 Stable Blue Scale Map
+  blue_ecs_task_counts = {
     default = 0
     dev     = 1
     staging = 1
@@ -41,8 +42,13 @@ locals {
   }
 
   current_instance_type = lookup(local.instance_sizes, terraform.workspace, "t3.micro")
-  current_ecs_scale     = lookup(local.ecs_task_counts, terraform.workspace, 0)
+  current_blue_scale    = lookup(local.blue_ecs_task_counts, terraform.workspace, 0)
+  
+  # 🟢 Dynamic Green Scale Map: If the workflow passes var.green_ecs_scale, use it! 
+  # Otherwise, fallback to matching the blue baseline scale.
+  current_green_scale   = var.green_ecs_scale != null ? var.green_ecs_scale : local.current_blue_scale
 }
+
 
 # ============================================================================
 # PHASE 2: STRUCTURAL NETWORK ARCHITECTURE
@@ -476,7 +482,7 @@ resource "aws_ecs_service" "react_social_link_green_service" {
   name            = "react-social-link-app-green-service"
   cluster         = aws_ecs_cluster.react_social_link_cluster.id
   task_definition = aws_ecs_task_definition.react_social_link_green_task.arn
-  desired_count   = local.current_ecs_scale
+  desired_count = local.current_green_scale
   launch_type     = "FARGATE"
 
   network_configuration {
@@ -503,7 +509,10 @@ resource "aws_ecs_service" "react_social_link_green_service" {
   }
 }
 
-# 🎛️ THE WEIGHTED TRAFFIC SWAP CONTROLLER
+
+# ============================================================================
+# 🎛️ 1. THE DEFAULT WEIGHTED TRAFFIC SWAP CONTROLLER (Priority 100)
+# ============================================================================
 resource "aws_lb_listener_rule" "blue_green_router" {
   listener_arn = aws_lb_listener.react_social_link_http_listener.arn
   priority     = 100
@@ -533,3 +542,29 @@ resource "aws_lb_listener_rule" "blue_green_router" {
   }
 }
 
+# ============================================================================
+# 🧪 2. THE CANARY SMOKE-TEST GATEWAY INTERCEPTOR (Priority 90)
+# ============================================================================
+resource "aws_lb_listener_rule" "green_smoke_test" {
+  listener_arn = aws_lb_listener.react_social_link_http_listener.arn
+  priority     = 90 # ⚡ Evaluated BEFORE the default rule to catch test headers!
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.react_social_link_ecs_tg_green.arn
+  }
+
+  # Whitelists background connections matching your specific test token keys
+  condition {
+    http_header {
+      http_header_name = "X-Blue-Green-Test"
+      values           = ["true"]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/*"]
+    }
+  }
+}
