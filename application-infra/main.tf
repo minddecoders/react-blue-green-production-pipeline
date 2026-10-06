@@ -43,10 +43,10 @@ locals {
 
   current_instance_type = lookup(local.instance_sizes, terraform.workspace, "t3.micro")
   current_blue_scale    = lookup(local.blue_ecs_task_counts, terraform.workspace, 0)
-  
+
   # 🟢 Dynamic Green Scale Map: If the workflow passes var.green_ecs_scale, use it! 
   # Otherwise, fallback to matching the blue baseline scale.
-  current_green_scale   = var.green_ecs_scale != null ? var.green_ecs_scale : local.current_blue_scale
+  current_green_scale = var.green_ecs_scale != null ? var.green_ecs_scale : local.current_blue_scale
 }
 
 
@@ -482,7 +482,7 @@ resource "aws_ecs_service" "react_social_link_green_service" {
   name            = "react-social-link-app-green-service"
   cluster         = aws_ecs_cluster.react_social_link_cluster.id
   task_definition = aws_ecs_task_definition.react_social_link_green_task.arn
-  desired_count = local.current_green_scale
+  desired_count   = local.current_green_scale
   launch_type     = "FARGATE"
 
   network_configuration {
