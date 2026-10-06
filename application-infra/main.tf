@@ -340,7 +340,7 @@ resource "aws_ecs_service" "react_social_link_service" {
   name            = "react-social-link-app-blue-service"
   cluster         = aws_ecs_cluster.react_social_link_cluster.id
   task_definition = aws_ecs_task_definition.react_social_link_task.arn
-  desired_count   = local.current_ecs_scale
+  desired_count   = local.current_blue_scale
   launch_type     = "FARGATE"
 
   network_configuration {
