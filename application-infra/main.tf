@@ -21,6 +21,16 @@ terraform {
 provider "aws" {
   region = var.aws_region
 }
+# ============================================================================
+# 🛰️ SSM: Retrieve the currently approved Blue Docker image
+# ============================================================================
+data "aws_ssm_parameter" "current_approved_image" {
+  name = "/current/react-recipeapp-blue-green-image"
+}
+
+locals {
+  approved_blue_image = var.container_image != null ? var.container_image : data.aws_ssm_parameter.current_approved_image.value
+}
 
 # ============================================================================
 # PHASE 1.1: WORKSPACE-SPECIFIC ENVIRONMENT CONFIGURATION (LOCALS)
@@ -308,7 +318,7 @@ resource "aws_ecs_task_definition" "react_social_link_task" {
   container_definitions = jsonencode([
     {
       name      = "react-social-link-app"
-      image     = var.container_image
+      image     = local.approved_blue_image
       essential = true
 
       portMappings = [{

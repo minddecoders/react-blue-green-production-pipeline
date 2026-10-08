@@ -60,8 +60,8 @@ variable "container_port" {
 # 🍏 Green Blue
 variable "container_image" {
   type        = string
-  description = "Docker Hub image used by the standard Blue ECS Fargate task"
-  default     = "minddecoders/react-recipeapp-blue-green-production:v1.0"
+  description = "Currently approved Docker image used by the Blue ECS Fargate task"
+  default     = null
 }
 
 variable "green_container_image" {

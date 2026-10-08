@@ -187,6 +187,15 @@ jobs:
           TF_VAR_green_container_image: "minddecoders/react-recipeapp-blue-green-production:${{ env.RELEASE_VERSION }}"
           TF_VAR_blue_traffic_weight: 0
           TF_VAR_green_traffic_weight: 100
+          
+      - name: "Record Green Release as Approved Production Image"
+        run: |
+          aws ssm put-parameter \
+            --name "/current/react-recipeapp-blue-green-image" \
+            --type "String" \
+            --value "minddecoders/react-recipeapp-blue-green-production:${{ env.RELEASE_VERSION }}" \
+            --overwrite \
+            --region eu-west-1  
  # ============================================================================
   # 🚨 JOB 5: AUTOMATED DEEP ROLLBACK (Fires ONLY if Smoke Test Fails)
   # ============================================================================
