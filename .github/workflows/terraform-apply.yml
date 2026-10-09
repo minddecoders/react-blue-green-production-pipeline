@@ -43,12 +43,15 @@ jobs:
       - name: "Build Production Multi-Stage Container Image"
         uses: docker/build-push-action@v5
         with:
-          context: ./react-app # 🔄 FIXED: Targets your true React source code folder!
-          file: ./react-app/Dockerfile
+          context: ./react-recipe-app
+          file: ./react-recipe-app/Dockerfile
           push: true
           tags: |
-            minddecoders/react-social-link-app:latest
-            minddecoders/react-social-link-app:${{ env.RELEASE_VERSION }}
+            minddecoders/react-recipeapp-blue-green-production:latest
+            minddecoders/react-recipeapp-blue-green-production:${{ env.RELEASE_VERSION }}
+
+
+
        
   # ============================================================================
   # JOB 2: STAGE IMMUTABLE GREEN ENVIRONMENT (0% Live Traffic)
