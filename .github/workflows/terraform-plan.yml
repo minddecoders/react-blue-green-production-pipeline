@@ -70,7 +70,7 @@ jobs:
       - name: "Generate Automated Plan Forecast Layout"
         run: terraform plan -input=false
         env:
-          TF_VAR_container_image: "minddecoders/react-recipeapp-blue-green-production:v1.0"
-          TF_VAR_green_container_image: "minddecoders/react-recipeapp-blue-green-production:v1.0"
+          TF_VAR_container_image: "minddecoders/react-recipeapp-blue-green-production:v1.4"
+          TF_VAR_green_container_image: "minddecoders/react-recipeapp-blue-green-production:v4.0"
           TF_VAR_blue_traffic_weight: 100
           TF_VAR_green_traffic_weight: 0
