@@ -489,11 +489,11 @@ resource "aws_ecs_task_definition" "react_social_link_green_task" {
 
 # 🟢 GREEN ECS SERVICE
 resource "aws_ecs_service" "react_social_link_green_service" {
-  name            = "react-social-link-app-green-service"
-  cluster         = aws_ecs_cluster.react_social_link_cluster.id
-  task_definition = aws_ecs_task_definition.react_social_link_green_task.arn
-  desired_count   = local.current_green_scale
-  launch_type     = "FARGATE"
+  name                  = "react-social-link-app-green-service"
+  cluster               = aws_ecs_cluster.react_social_link_cluster.id
+  task_definition       = aws_ecs_task_definition.react_social_link_green_task.arn
+  desired_count         = local.current_green_scale
+  launch_type           = "FARGATE"
   wait_for_steady_state = true
 
   network_configuration {
