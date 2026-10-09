@@ -494,6 +494,7 @@ resource "aws_ecs_service" "react_social_link_green_service" {
   task_definition = aws_ecs_task_definition.react_social_link_green_task.arn
   desired_count   = local.current_green_scale
   launch_type     = "FARGATE"
+  wait_for_steady_state = true
 
   network_configuration {
     subnets          = [aws_subnet.react_clouddeploye_public_subnet.id, aws_subnet.react_clouddeploye_public_subnet_b.id]
