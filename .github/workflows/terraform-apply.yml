@@ -150,6 +150,7 @@ jobs:
     name: "Run Green Smoke and Health Tests"
     runs-on: ubuntu-latest
     needs: terraform-stage-green
+    if: ${{ always() && needs.terraform-stage-green.result == 'success' }}
 
     steps:
       - name: Verify Green HTTP Health
