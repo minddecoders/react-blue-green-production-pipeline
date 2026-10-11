@@ -16,7 +16,7 @@ function Home(){
 
        <div className={style.about}>
     <h1>
-Welcome to Green Version 2
+Welcome to Green Version 2 with KMS key 
 </h1>
        <p>Ever been in a room and felt like something was missing? Perhaps it felt slightly bare and uninviting. I’ve got some simple tips to help you make any room feel complete.</p>
        <div className={style.profile}>
