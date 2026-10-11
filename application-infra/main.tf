@@ -306,7 +306,7 @@ resource "aws_iam_role_policy_attachment" "react_social_link_ecs_task_execution"
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 # ============================================================================
-# PHASE 11.2: ENTERPRISE SECRETS ACCESS • KMS & VAULT INLINE POLICY ATTACHMENT
+# PHASE 6.2: ENTERPRISE SECRETS ACCESS • KMS & VAULT INLINE POLICY ATTACHMENT
 # ============================================================================
 
 resource "aws_iam_role_policy" "ecs_secrets_kms_policy" {
@@ -358,6 +358,14 @@ resource "aws_ecs_task_definition" "react_social_link_task" {
         hostPort      = var.container_port
         protocol      = "tcp"
       }]
+
+      # 🔐 HARDENED INGRESS: Dynamically mounts encrypted KMS secrets directly to your app environment memory variables!
+      secrets = [
+        {
+          name      = "DATABASE_PASSWORD"
+          valueFrom = "arn:aws:secretsmanager:eu-west-1:951614974272:secret:sidra-react-monorepo-db-secrets-Z7UeMP"
+        }
+      ]
 
       logConfiguration = {
         logDriver = "awslogs"
@@ -499,6 +507,14 @@ resource "aws_ecs_task_definition" "react_social_link_green_task" {
         hostPort      = var.container_port
         protocol      = "tcp"
       }]
+
+      # 🔐 HARDENED INGRESS: Guarantees your v2 candidate can decrypt secure tokens cleanly during smoke tests!
+      secrets = [
+        {
+          name      = "DATABASE_PASSWORD"
+          valueFrom = "arn:aws:secretsmanager:eu-west-1:951614974272:secret:sidra-react-monorepo-db-secrets-Z7UeMP"
+        }
+      ]
 
       logConfiguration = {
         logDriver = "awslogs"
