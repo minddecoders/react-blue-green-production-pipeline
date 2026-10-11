@@ -1,47 +1,48 @@
 # ============================================================================
-# 🇮🇪 REGION 1: PRIMARY ENVIRONMENT CONFIGURATION METRICS (IRELAND)
+# 🍏 VARIABLES.TF: ENTERPRISE BLUE-GREEN DEPLOYMENT CONFIGURATIONS
 # ============================================================================
 
 variable "aws_region" {
   type        = string
-  description = "The primary active geographical deployment zone"
+  description = "The AWS Target Deployment Region"
   default     = "eu-west-1"
 }
 
 variable "vpc_cidr" {
   type        = string
-  description = "Base network address block for the primary Ireland VPC"
+  description = "Base CIDR range for the automated VPC"
   default     = "10.20.0.0/16"
 }
 
 variable "public_subnet_cidr" {
   type        = string
-  description = "Network address slice for public subnet A in Ireland"
+  description = "CIDR range for the front-facing public web tier"
   default     = "10.20.1.0/24"
 }
 
+# 🛡️ ALB must have at least two public subnets in different AZs
 variable "public_subnet_b_cidr" {
   type        = string
-  description = "Network address slice for public subnet B in Ireland"
+  description = "CIDR block for the second redundant public subnet tier"
   default     = "10.20.3.0/24"
 }
 
 variable "private_subnet_cidr" {
   type        = string
-  description = "Isolated network address space for internal databases"
+  description = "CIDR range for the isolated backend database tier"
   default     = "10.20.2.0/24"
 }
 
 variable "public_instance_ami" {
   type        = string
   description = "AMI ID for the public Nginx web server"
-  default     = "ami-04df7d76c1b804451" # Canonical Ubuntu Server 22.04 LTS
+  default     = "ami-04df7d76c1b804451" # Ubuntu 22.04 LTS
 }
 
 variable "private_instance_ami" {
   type        = string
   description = "AMI ID for the isolated backend server"
-  default     = "ami-04df7d76c1b804451"
+  default     = "ami-04df7d76c1b804451" # Ubuntu 22.04 LTS
 }
 
 variable "instance_type" {
@@ -50,14 +51,53 @@ variable "instance_type" {
   default     = "t3.micro"
 }
 
+# 🐳 Docker Configuration
+variable "container_port" {
+  type        = number
+  description = "Port exposed by the container"
+  default     = 80
+}
+# 🍏 Green Blue
+variable "container_image" {
+  type        = string
+  description = "Currently approved Docker image used by the Blue ECS Fargate task"
+  default     = null
+}
+
+variable "green_container_image" {
+  type        = string
+  description = "Docker Hub image version passed dynamically from GitHub Actions"
+  default     = "minddecoders/react-recipeapp-blue-green-production:v1.0" # Changed default away from :latest to track drift clearly
+}
+variable "green_ecs_scale" {
+  type        = number
+  description = "Emergency override toggle to scale down defective Green tasks during a rollback"
+  default     = null # Defaults to null so it matches standard workspace baselines normally
+}
+
+
+# 🎛️ Blue-Green Routing Controllers
+# These connect directly to the aws_lb_listener_rule in your main.tf file!
+variable "blue_traffic_weight" {
+  type        = number
+  description = "Percentage of active production traffic routed to the stable Blue service"
+  default     = 100
+}
+
+variable "green_traffic_weight" {
+  type        = number
+  description = "Percentage of active production traffic routed to the staging Green service"
+  default     = 0
+}
+
 # ============================================================================
 # 🇺🇸 REGION 2: DISASTER RECOVERY ENVIRONMENT METRICS (N. VIRGINIA)
 # ============================================================================
 
 variable "aws_backup_region" {
   type        = string
-  description = "The secondary emergency backup geographical deployment zone"
-  default     = "us-east-1"
+  description = "The secondary emergency backup Amazon Web Services geographical region hub"
+  default     = "us-east-1" # 🇩🇪 Dispatched natively straight into Frankfurt, Germany!
 }
 
 variable "dr_vpc_cidr" {
@@ -78,52 +118,8 @@ variable "dr_public_subnet_b_cidr" {
   default     = "10.40.3.0/24"
 }
 
-# ============================================================================
-# 🐳 CORE DOCKER APPLICATIVE CONTAINER IMAGES AND POINTERS
-# ============================================================================
-
-variable "container_image" {
-  type        = string
-  description = "Docker Hub image path used by the stable Blue compute tasks"
-  default     = null # 🔑 Decoupled from hardcoded string variables
-}
-
-variable "green_container_image" {
-  type        = string
-  description = "Docker Hub image tag updated dynamically via automation pipelines"
-  default     = "minddecoders/react-social-link-app:latest"
-}
-
-variable "container_port" {
-  type        = number
-  description = "The internal listening port exposed by the application process"
-  default     = 80
-}
-
-variable "green_ecs_scale" {
-  type        = number
-  description = "Dynamic task counts pass-through variable flag for smoke testing"
-  default     = null
-}
-
-# ============================================================================
-# 🎛️ TRAFFIC BALANCING CONTROL WEIGHT METRICS
-# ============================================================================
-
-variable "blue_traffic_weight" {
-  type        = number
-  description = "Percentage split routed to the active Blue service tier"
-  default     = 100
-}
-
-variable "green_traffic_weight" {
-  type        = number
-  description = "Percentage split routed to the staging Green service tier"
-  default     = 0
-}
-
 variable "domain_name" {
   type        = string
-  description = "The authoritative production web domain for public routing maps"
-  default     = "sidrashoppe.com"
+  description = "The authoritative production public internet root domain link address for Route 53 routing"
+  default     = "sidrashoppe.com" # Placeholder enterprise domain for routing simulation
 }

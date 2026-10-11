@@ -880,66 +880,50 @@ resource "aws_ecs_service" "dr_service" {
 }
 
 # ============================================================================
-# PHASE 14: ROUTE 53 DNS FAILOVER
+# PHASE 15: INTELLIGENT DNS ROUTING LAYER (ROUTE 53 GLOBAL FAILOVER MATRIX)
 # ============================================================================
-
-# 🌐 1. Declare Your Authoritative Hosted Zone
 resource "aws_route53_zone" "primary" {
   name          = var.domain_name
   force_destroy = false
 }
 
-# 🔬 2. Declare Your Ireland Load Balancer Health Check Prober
 resource "aws_route53_health_check" "primary_health" {
-  fqdn              = aws_lb.react_social_link_alb.dns_name
+  fqdn              = aws_lb.react_social_link_alb.dns_name # 🔄 SYNCED: Points to your active primary ALB
   port              = 80
   type              = "HTTP"
   resource_path     = "/"
-  failure_threshold = 2
-  request_interval  = 30
-
-  tags = {
-    Name = "sidra-primary-health-check"
-  }
+  failure_threshold = "2"
+  request_interval  = "30"
+  tags              = { Name = "sidra-primary-health-check" }
 }
 
-# 🔵 3. Primary Route 53 Active DNS Failover Record
 resource "aws_route53_record" "active_record" {
   zone_id = aws_route53_zone.primary.zone_id
   name    = var.domain_name
   type    = "A"
 
-  failover_routing_policy {
-    type = "PRIMARY"
-  }
-
+  failover_routing_policy { type = "PRIMARY" }
   set_identifier  = "ireland-active-system"
   health_check_id = aws_route53_health_check.primary_health.id
 
   alias {
-    name                   = aws_lb.react_social_link_alb.dns_name
-    zone_id                = "Z32O6AFOM90A9G"
+    name                   = aws_lb.react_social_link_alb.dns_name # 🔄 SYNCED: Ireland Ingress
+    zone_id                = aws_lb.react_social_link_alb.zone_id  # 🔄 SYNCED: True dynamic zone token lookup
     evaluate_target_health = true
   }
 }
 
-# 🇺🇸 4. Secondary Route 53 Passive DNS Failover Record
 resource "aws_route53_record" "passive_record" {
   zone_id = aws_route53_zone.primary.zone_id
   name    = var.domain_name
   type    = "A"
 
-  failover_routing_policy {
-    type = "SECONDARY"
-  }
-
+  failover_routing_policy { type = "SECONDARY" }
   set_identifier = "virginia-backup-system"
 
   alias {
-    name                   = aws_lb.dr_alb.dns_name
-    zone_id                = "Z35SXDOTRQ7X7K"
+    name                   = aws_lb.dr_alb.dns_name # 🔄 SYNCED: North Virginia Ingress
+    zone_id                = aws_lb.dr_alb.zone_id  # 🔄 SYNCED: True dynamic DR zone token lookup
     evaluate_target_health = true
   }
 }
-
-
