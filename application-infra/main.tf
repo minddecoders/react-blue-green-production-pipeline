@@ -18,8 +18,15 @@ terraform {
   }
 }
 
+# 🔵 PRIMARY CLOUD ENGINE (DEFAULT PROVIDER): Anchored natively in Ireland
 provider "aws" {
   region = var.aws_region
+}
+
+# 🇺🇸 SECONDARY DR CLOUD ENGINE (ALIASED PROVIDER): Dispatched into North Virginia!
+provider "aws" {
+  alias  = "us_east_1" # 🚀 THE TRACKING ALIAS WIRE!
+  region = var.aws_backup_region
 }
 # ============================================================================
 # 🛰️ SSM: Retrieve the currently approved Blue Docker image
@@ -305,38 +312,6 @@ resource "aws_iam_role_policy_attachment" "react_social_link_ecs_task_execution"
   role       = aws_iam_role.react_social_link_ecs_task_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
-# ============================================================================
-# PHASE 6.2: ENTERPRISE SECRETS ACCESS • KMS & VAULT INLINE POLICY ATTACHMENT
-# ============================================================================
-
-resource "aws_iam_role_policy" "ecs_secrets_kms_policy" {
-  name = "sidra-${terraform.workspace}-ecs-secrets-kms-access"
-  # 🔄 REALIGNED: Changed to point to your true React Social Link role reference!
-  role = aws_iam_role.react_social_link_ecs_task_execution_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        # 🔒 SECURE BINDING: Targets your exact newly generated Secrets Manager ARN!
-        Resource = ["arn:aws:secretsmanager:eu-west-1:951614974272:secret:sidra-react-monorepo-db-secrets-Z7UeMP"]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt"
-        ]
-        # 🔒 CRYPTOGRAPHIC BINDING: Targets your exact newly generated KMS Key ARN!
-        Resource = ["arn:aws:kms:eu-west-1:951614974272:key/909f67e0-6fae-4e18-bf53-bac0b79d4070"]
-      }
-    ]
-  })
-}
-
 
 # 🔵 BLUE ECS TASK DEFINITION
 resource "aws_ecs_task_definition" "react_social_link_task" {
@@ -358,14 +333,6 @@ resource "aws_ecs_task_definition" "react_social_link_task" {
         hostPort      = var.container_port
         protocol      = "tcp"
       }]
-
-      # 🔐 HARDENED INGRESS: Dynamically mounts encrypted KMS secrets directly to your app environment memory variables!
-      secrets = [
-        {
-          name      = "DATABASE_PASSWORD"
-          valueFrom = "arn:aws:secretsmanager:eu-west-1:951614974272:secret:sidra-react-monorepo-db-secrets-Z7UeMP"
-        }
-      ]
 
       logConfiguration = {
         logDriver = "awslogs"
@@ -407,7 +374,6 @@ resource "aws_ecs_service" "react_social_link_service" {
 
   depends_on = [
     aws_iam_role_policy_attachment.react_social_link_ecs_task_execution,
-    aws_iam_role_policy.ecs_secrets_kms_policy, # 🔄 SECURE SYNC: Protects Blue tasks during scale-ups!
     aws_lb_listener.react_social_link_http_listener
   ]
 }
@@ -509,14 +475,6 @@ resource "aws_ecs_task_definition" "react_social_link_green_task" {
         protocol      = "tcp"
       }]
 
-      # 🔐 HARDENED INGRESS: Guarantees your v2 candidate can decrypt secure tokens cleanly during smoke tests!
-      secrets = [
-        {
-          name      = "DATABASE_PASSWORD"
-          valueFrom = "arn:aws:secretsmanager:eu-west-1:951614974272:secret:sidra-react-monorepo-db-secrets-Z7UeMP"
-        }
-      ]
-
       logConfiguration = {
         logDriver = "awslogs"
 
@@ -559,7 +517,6 @@ resource "aws_ecs_service" "react_social_link_green_service" {
 
   depends_on = [
     aws_iam_role_policy_attachment.react_social_link_ecs_task_execution,
-    aws_iam_role_policy.ecs_secrets_kms_policy, # 🔄 SECURE SYNC: Waits for your secrets permissions to be active!
     aws_lb_listener.react_social_link_http_listener
   ]
 
@@ -629,3 +586,360 @@ resource "aws_lb_listener_rule" "green_smoke_test" {
     }
   }
 }
+# ============================================================================
+# 💜💜💜PHASE 11: DISASTER RECOVERY NETWORK — NORTH VIRGINIA
+# ============================================================================
+
+resource "aws_vpc" "dr_vpc" {
+  provider             = aws.us_east_1
+  cidr_block           = var.dr_vpc_cidr
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = {
+    Name = "react-clouddeploye-${terraform.workspace}-dr-vpc"
+  }
+}
+
+resource "aws_internet_gateway" "dr_igw" {
+  provider = aws.us_east_1
+  vpc_id   = aws_vpc.dr_vpc.id
+
+  tags = {
+    Name = "react-clouddeploye-${terraform.workspace}-dr-igw"
+  }
+}
+
+resource "aws_route_table" "dr_public_rt" {
+  provider = aws.us_east_1
+  vpc_id   = aws_vpc.dr_vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.dr_igw.id
+  }
+
+  tags = {
+    Name = "react-clouddeploye-${terraform.workspace}-dr-public-rt"
+  }
+}
+
+resource "aws_subnet" "dr_public_subnet_a" {
+  provider                = aws.us_east_1
+  vpc_id                  = aws_vpc.dr_vpc.id
+  cidr_block              = var.dr_public_subnet_a_cidr
+  availability_zone       = "${var.aws_backup_region}a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "react-clouddeploye-${terraform.workspace}-dr-public-subnet-1a"
+  }
+}
+
+resource "aws_route_table_association" "dr_public_a_assoc" {
+  provider       = aws.us_east_1
+  subnet_id      = aws_subnet.dr_public_subnet_a.id
+  route_table_id = aws_route_table.dr_public_rt.id
+}
+
+resource "aws_subnet" "dr_public_subnet_b" {
+  provider                = aws.us_east_1
+  vpc_id                  = aws_vpc.dr_vpc.id
+  cidr_block              = var.dr_public_subnet_b_cidr
+  availability_zone       = "${var.aws_backup_region}b"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "react-clouddeploye-${terraform.workspace}-dr-public-subnet-1b"
+  }
+}
+
+resource "aws_route_table_association" "dr_public_b_assoc" {
+  provider       = aws.us_east_1
+  subnet_id      = aws_subnet.dr_public_subnet_b.id
+  route_table_id = aws_route_table.dr_public_rt.id
+}
+
+# Separate DR ALB security group
+resource "aws_security_group" "dr_alb_sg" {
+  provider    = aws.us_east_1
+  name        = "react-${terraform.workspace}-dr-alb-sg"
+  description = "Allow public HTTP to the DR ALB"
+  vpc_id      = aws_vpc.dr_vpc.id
+
+  ingress {
+    description = "Public HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# DR ECS tasks accept traffic only from the DR ALB
+resource "aws_security_group" "dr_ecs_sg" {
+  provider    = aws.us_east_1
+  name        = "react-${terraform.workspace}-dr-ecs-sg"
+  description = "Allow HTTP only from the DR ALB"
+  vpc_id      = aws_vpc.dr_vpc.id
+
+  ingress {
+    description     = "HTTP from DR ALB"
+    from_port       = var.container_port
+    to_port         = var.container_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.dr_alb_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# ============================================================================
+# PHASE 12: DISASTER RECOVERY ALB
+# ============================================================================
+
+resource "aws_lb" "dr_alb" {
+  provider           = aws.us_east_1
+  name               = "react-dr-${terraform.workspace}-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.dr_alb_sg.id]
+
+  subnets = [
+    aws_subnet.dr_public_subnet_a.id,
+    aws_subnet.dr_public_subnet_b.id
+  ]
+
+  tags = {
+    Environment = terraform.workspace
+    Deployment  = "DR-Standby-Edge"
+  }
+}
+
+resource "aws_lb_target_group" "dr_ecs_tg" {
+  provider    = aws.us_east_1
+  name        = "react-${terraform.workspace}-dr-tg"
+  port        = var.container_port
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.dr_vpc.id
+  target_type = "ip"
+
+  health_check {
+    path                = "/"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
+  }
+
+  tags = {
+    Environment = terraform.workspace
+    Deployment  = "DR"
+  }
+}
+
+resource "aws_lb_listener" "dr_http_listener" {
+  provider          = aws.us_east_1
+  load_balancer_arn = aws_lb.dr_alb.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.dr_ecs_tg.arn
+  }
+}
+
+# ============================================================================
+# PHASE 13: DISASTER RECOVERY ECS FARGATE
+# ============================================================================
+
+resource "aws_cloudwatch_log_group" "dr_ecs_log_group" {
+  provider          = aws.us_east_1
+  name              = "/ecs/react-social-link-dr-${terraform.workspace}-logs"
+  retention_in_days = 7
+}
+
+resource "aws_ecs_cluster" "dr_cluster" {
+  provider = aws.us_east_1
+  name     = "react-social-link-dr-${terraform.workspace}-cluster"
+
+  tags = {
+    Environment = terraform.workspace
+    Region      = var.aws_backup_region
+  }
+}
+
+resource "aws_iam_role" "dr_ecs_execution_role" {
+  provider = aws.us_east_1
+  name     = "react-social-link-dr-exec-${terraform.workspace}-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "ecs-tasks.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "dr_ecs_task_execution_attach" {
+  provider   = aws.us_east_1
+  role       = aws_iam_role.dr_ecs_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+resource "aws_ecs_task_definition" "dr_task" {
+  provider                 = aws.us_east_1
+  family                   = "react-social-link-dr-${terraform.workspace}"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.dr_ecs_execution_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "react-social-link-dr-app"
+      image     = local.approved_blue_image
+      essential = true
+
+      portMappings = [{
+        containerPort = var.container_port
+        hostPort      = var.container_port
+        protocol      = "tcp"
+      }]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.dr_ecs_log_group.name
+          "awslogs-region"        = var.aws_backup_region
+          "awslogs-stream-prefix" = "dr-ecs"
+        }
+      }
+    }
+  ])
+
+  tags = {
+    Environment = terraform.workspace
+    Region      = var.aws_backup_region
+  }
+}
+
+resource "aws_ecs_service" "dr_service" {
+  provider        = aws.us_east_1
+  name            = "react-social-link-dr-${terraform.workspace}-service"
+  cluster         = aws_ecs_cluster.dr_cluster.id
+  task_definition = aws_ecs_task_definition.dr_task.arn
+  desired_count   = local.current_blue_scale
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets = [
+      aws_subnet.dr_public_subnet_a.id,
+      aws_subnet.dr_public_subnet_b.id
+    ]
+
+    security_groups  = [aws_security_group.dr_ecs_sg.id]
+    assign_public_ip = true
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.dr_ecs_tg.arn
+    container_name   = "react-social-link-dr-app"
+    container_port   = var.container_port
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.dr_ecs_task_execution_attach,
+    aws_lb_listener.dr_http_listener
+  ]
+
+  tags = {
+    Environment = terraform.workspace
+    Region      = var.aws_backup_region
+  }
+}
+
+# ============================================================================
+# PHASE 14: ROUTE 53 DNS FAILOVER
+# ============================================================================
+
+# 🌐 1. Declare Your Authoritative Hosted Zone
+resource "aws_route53_zone" "primary" {
+  name          = var.domain_name
+  force_destroy = false
+}
+
+# 🔬 2. Declare Your Ireland Load Balancer Health Check Prober
+resource "aws_route53_health_check" "primary_health" {
+  fqdn              = aws_lb.react_social_link_alb.dns_name
+  port              = 80
+  type              = "HTTP"
+  resource_path     = "/"
+  failure_threshold = 2
+  request_interval  = 30
+
+  tags = {
+    Name = "sidra-primary-health-check"
+  }
+}
+
+# 🔵 3. Primary Route 53 Active DNS Failover Record
+resource "aws_route53_record" "active_record" {
+  zone_id = aws_route53_zone.primary.zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  failover_routing_policy {
+    type = "PRIMARY"
+  }
+
+  set_identifier  = "ireland-active-system"
+  health_check_id = aws_route53_health_check.primary_health.id
+
+  alias {
+    name                   = aws_lb.react_social_link_alb.dns_name
+    zone_id                = "Z32O6AFOM90A9G"
+    evaluate_target_health = true
+  }
+}
+
+# 🇺🇸 4. Secondary Route 53 Passive DNS Failover Record
+resource "aws_route53_record" "passive_record" {
+  zone_id = aws_route53_zone.primary.zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  failover_routing_policy {
+    type = "SECONDARY"
+  }
+
+  set_identifier = "virginia-backup-system"
+
+  alias {
+    name                   = aws_lb.dr_alb.dns_name
+    zone_id                = "Z35SXDOTRQ7X7K"
+    evaluate_target_health = true
+  }
+}
+
+
