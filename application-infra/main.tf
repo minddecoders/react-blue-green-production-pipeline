@@ -305,6 +305,38 @@ resource "aws_iam_role_policy_attachment" "react_social_link_ecs_task_execution"
   role       = aws_iam_role.react_social_link_ecs_task_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
+# ============================================================================
+# PHASE 11.2: ENTERPRISE SECRETS ACCESS • KMS & VAULT INLINE POLICY ATTACHMENT
+# ============================================================================
+
+resource "aws_iam_role_policy" "ecs_secrets_kms_policy" {
+  name = "sidra-${terraform.workspace}-ecs-secrets-kms-access"
+  # 🔄 REALIGNED: Changed to point to your true React Social Link role reference!
+  role = aws_iam_role.react_social_link_ecs_task_execution_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        # 🔒 SECURE BINDING: Targets your exact newly generated Secrets Manager ARN!
+        Resource = ["arn:aws:secretsmanager:eu-west-1:951614974272:secret:sidra-react-monorepo-db-secrets-Z7UeMP"]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt"
+        ]
+        # 🔒 CRYPTOGRAPHIC BINDING: Targets your exact newly generated KMS Key ARN!
+        Resource = ["arn:aws:kms:eu-west-1:951614974272:key/909f67e0-6fae-4e18-bf53-bac0b79d4070"]
+      }
+    ]
+  })
+}
+
 
 # 🔵 BLUE ECS TASK DEFINITION
 resource "aws_ecs_task_definition" "react_social_link_task" {
