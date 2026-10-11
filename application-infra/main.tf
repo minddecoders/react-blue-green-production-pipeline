@@ -407,6 +407,7 @@ resource "aws_ecs_service" "react_social_link_service" {
 
   depends_on = [
     aws_iam_role_policy_attachment.react_social_link_ecs_task_execution,
+    aws_iam_role_policy.ecs_secrets_kms_policy, # 🔄 SECURE SYNC: Protects Blue tasks during scale-ups!
     aws_lb_listener.react_social_link_http_listener
   ]
 }
@@ -558,6 +559,7 @@ resource "aws_ecs_service" "react_social_link_green_service" {
 
   depends_on = [
     aws_iam_role_policy_attachment.react_social_link_ecs_task_execution,
+    aws_iam_role_policy.ecs_secrets_kms_policy, # 🔄 SECURE SYNC: Waits for your secrets permissions to be active!
     aws_lb_listener.react_social_link_http_listener
   ]
 
